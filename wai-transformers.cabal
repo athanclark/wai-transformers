@@ -1,41 +1,25 @@
 Name:                   wai-transformers
-Version:                0.0.0
+Version:                0.0.1
 Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
 License-File:           LICENSE
--- Synopsis:
+Synopsis:               Simple parameterization of Wai's Application type
 -- Description:
 Cabal-Version:          >= 1.10
 Build-Type:             Simple
+Category:               Web
 
 Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall
   Exposed-Modules:      Network.Wai.Trans
-  Other-Modules:        Network.Wai.Trans.Internal
   Build-Depends:        base >= 4.6 && < 5
                       , composition-extra >= 2.0.0
                       , wai
                       , transformers
-                      , mtl
-                      , http-types
-
-Test-Suite spec
-  Type:                 exitcode-stdio-1.0
-  Default-Language:     Haskell2010
-  Hs-Source-Dirs:       src
-                      , test
-  Ghc-Options:          -Wall
-  Main-Is:              Spec.hs
-  Build-Depends:        base
-                      , tasty
-                      , tasty-quickcheck
-                      , tasty-hunit
-                      , QuickCheck
-                      , quickcheck-instances
 
 Source-Repository head
   Type:                 git
---  Location:
+  Location:             https://github.com/athanclark/wai-transformers.git
