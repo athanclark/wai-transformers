@@ -19,6 +19,8 @@ Library
                       , composition-extra >= 2.0.0
                       , wai
                       , transformers
+                      , mtl
+                      , http-types
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
