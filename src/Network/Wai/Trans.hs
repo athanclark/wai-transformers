@@ -31,23 +31,22 @@ module Network.Wai.Trans
 
 import           Network.Wai as X
 
-import           Data.Function.Syntax
 import           Control.Monad.IO.Class
 
-
-type ApplicationT m = Request -> (Response -> IO ResponseReceived) -> m ResponseReceived
+-- | Isomorphic to @Kleisli (ContT ResponseReceived m) Request Response@
+type ApplicationT m = Request -> (Response -> m ResponseReceived) -> m ResponseReceived
 type MiddlewareT m = ApplicationT m -> ApplicationT m
 
 
-liftApplication :: MonadIO m => Application -> ApplicationT m
-liftApplication app = liftIO .* app
+liftApplication :: MonadIO m => (forall a. m a -> IO a) -> Application -> ApplicationT m
+liftApplication run app req resp = liftIO (app req (run . resp))
 
-liftMiddleware :: MonadIO m => (ApplicationT m -> Application) -> Middleware -> MiddlewareT m
-liftMiddleware runAppT mid app = liftApplication $ mid (runAppT app)
+liftMiddleware :: MonadIO m => (forall a. m a -> IO a) -> Middleware -> MiddlewareT m
+liftMiddleware run mid app = liftApplication run (mid (runApplicationT run app))
 
-runApplicationT :: (forall a. m a -> IO a) -> ApplicationT m -> Application
-runApplicationT run app req respond = run (app req respond)
+runApplicationT :: MonadIO m => (forall a. m a -> IO a) -> ApplicationT m -> Application
+runApplicationT run app req respond = run (app req (liftIO . respond))
 
 runMiddlewareT :: MonadIO m => (forall a. m a -> IO a) -> MiddlewareT m -> Middleware
-runMiddlewareT run mid app req respond = run (mid (liftApplication app) req respond)
+runMiddlewareT run mid app = runApplicationT run (mid (liftApplication run app))
 
