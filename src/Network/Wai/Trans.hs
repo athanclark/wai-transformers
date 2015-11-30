@@ -19,19 +19,24 @@
 
 
 module Network.Wai.Trans
-  ( module X
+  ( -- * Types
+    module Network.Wai
   , ApplicationT
   , MiddlewareT
   , liftApplication
   , liftMiddleware
   , runApplicationT
   , runMiddlewareT
+  , -- * Exception catching
+    catchApplicationT
+  , catchMiddlewareT
   ) where
 
 
-import           Network.Wai as X
+import           Network.Wai
 
 import           Control.Monad.IO.Class
+import           Control.Monad.Catch
 
 -- | Isomorphic to @Kleisli (ContT ResponseReceived m) Request Response@
 type ApplicationT m = Request -> (Response -> m ResponseReceived) -> m ResponseReceived
@@ -49,4 +54,18 @@ runApplicationT run app req respond = run (app req (liftIO . respond))
 
 runMiddlewareT :: MonadIO m => (forall a. m a -> IO a) -> MiddlewareT m -> Middleware
 runMiddlewareT run mid app = runApplicationT run (mid (liftApplication run app))
+
+
+catchApplicationT :: ( MonadCatch m
+                     , Exception e
+                     ) => ApplicationT m -> (e -> ApplicationT m) -> ApplicationT m
+catchApplicationT x f req respond =
+  (x req respond) `catch` (\e -> f e req respond)
+
+catchMiddlewareT :: ( MonadIO m
+                    , MonadCatch m
+                    , Exception e
+                    ) => MiddlewareT m -> (e -> MiddlewareT m) -> MiddlewareT m
+catchMiddlewareT x f app =
+  (x app) `catchApplicationT` (\e -> f e app)
 
