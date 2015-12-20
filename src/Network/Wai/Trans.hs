@@ -27,6 +27,8 @@ module Network.Wai.Trans
   , liftMiddleware
   , runApplicationT
   , runMiddlewareT
+  , hoistApplicationT
+  , hoistMiddlewareT
   , -- * Exception catching
     catchApplicationT
   , catchMiddlewareT
@@ -54,6 +56,24 @@ runApplicationT run app req respond = run (app req (liftIO . respond))
 
 runMiddlewareT :: MonadIO m => (forall a. m a -> IO a) -> MiddlewareT m -> Middleware
 runMiddlewareT run mid app = runApplicationT run (mid (liftApplication run app))
+
+hoistApplicationT :: ( Monad m
+                     , Monad n
+                     ) => (forall a. m a -> n a)
+                       -> (forall a. n a -> m a)
+                       -> ApplicationT m
+                       -> ApplicationT n
+hoistApplicationT to from app req resp =
+  to $ app req (from . resp)
+
+hoistMiddlewareT :: ( Monad m
+                    , Monad n
+                    ) => (forall a. m a -> n a)
+                      -> (forall a. n a -> m a)
+                      -> MiddlewareT m
+                      -> MiddlewareT n
+hoistMiddlewareT to from mid =
+  hoistApplicationT to from . mid . hoistApplicationT from to
 
 
 catchApplicationT :: ( MonadCatch m
