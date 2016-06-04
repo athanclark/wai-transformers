@@ -32,6 +32,8 @@ module Network.Wai.Trans
   , -- * Exception catching
     catchApplicationT
   , catchMiddlewareT
+  , -- * General Purpose
+    readingRequest
   ) where
 
 
@@ -82,10 +84,13 @@ catchApplicationT :: ( MonadCatch m
 catchApplicationT x f req respond =
   (x req respond) `catch` (\e -> f e req respond)
 
-catchMiddlewareT :: ( MonadIO m
-                    , MonadCatch m
+catchMiddlewareT :: ( MonadCatch m
                     , Exception e
                     ) => MiddlewareT m -> (e -> MiddlewareT m) -> MiddlewareT m
 catchMiddlewareT x f app =
   (x app) `catchApplicationT` (\e -> f e app)
 
+readingRequest :: Monad m => (Request -> m ()) -> MiddlewareT m
+readingRequest f app req resp = do
+  f req
+  app req resp
