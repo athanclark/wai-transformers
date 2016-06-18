@@ -38,14 +38,20 @@ module Network.Wai.Trans
 
 
 import           Network.Wai
+import           Network.Wai.Handler.WebSockets
+import           Network.WebSockets hiding (Request, Response)
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Catch
+
+
+-- * WAI
 
 -- | Isomorphic to @Kleisli (ContT ResponseReceived m) Request Response@
 type ApplicationT m = Request -> (Response -> m ResponseReceived) -> m ResponseReceived
 type MiddlewareT m = ApplicationT m -> ApplicationT m
 
+-- ** Generalization
 
 liftApplication :: MonadIO m => (forall a. m a -> IO a) -> Application -> ApplicationT m
 liftApplication run app req resp = liftIO (app req (run . resp))
@@ -58,6 +64,8 @@ runApplicationT run app req respond = run (app req (liftIO . respond))
 
 runMiddlewareT :: MonadIO m => (forall a. m a -> IO a) -> MiddlewareT m -> Middleware
 runMiddlewareT run mid app = runApplicationT run (mid (liftApplication run app))
+
+-- ** Monad Morphisms
 
 hoistApplicationT :: ( Monad m
                      , Monad n
@@ -77,6 +85,7 @@ hoistMiddlewareT :: ( Monad m
 hoistMiddlewareT to from mid =
   hoistApplicationT to from . mid . hoistApplicationT from to
 
+-- ** Exception Catching
 
 catchApplicationT :: ( MonadCatch m
                      , Exception e
@@ -90,7 +99,20 @@ catchMiddlewareT :: ( MonadCatch m
 catchMiddlewareT x f app =
   (x app) `catchApplicationT` (\e -> f e app)
 
+-- ** Utils
+
 readingRequest :: Monad m => (Request -> m ()) -> MiddlewareT m
 readingRequest f app req resp = do
   f req
   app req resp
+
+
+-- * Websockets
+
+type ServerAppT m = PendingConnection -> m ()
+
+websocketsOrT :: (MonadIO m) => (forall a. m a -> IO a) -> ConnectionOptions -> ServerAppT m -> MiddlewareT m
+websocketsOrT run cOpts server app req respond =
+  let server' pend = run $ server pend
+      app' = liftApplication run . websocketsOr cOpts server' $ runApplicationT run app
+  in  app' req respond
