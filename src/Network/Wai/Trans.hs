@@ -19,21 +19,26 @@
 
 
 module Network.Wai.Trans
-  ( -- * Types
+  ( -- * WAI
+    -- ** Types
     module Network.Wai
   , ApplicationT
   , MiddlewareT
-  , liftApplication
+  , -- ** Embedding
+    liftApplication
   , liftMiddleware
   , runApplicationT
   , runMiddlewareT
   , hoistApplicationT
   , hoistMiddlewareT
-  , -- * Exception catching
+  , -- ** Exception catching
     catchApplicationT
   , catchMiddlewareT
-  , -- * General Purpose
+  , -- ** General Purpose
     readingRequest
+  , -- * Websockets
+    ServerAppT
+  , websocketsOrT
   ) where
 
 
