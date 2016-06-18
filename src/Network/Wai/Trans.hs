@@ -111,6 +111,7 @@ readingRequest f app req resp = do
 
 type ServerAppT m = PendingConnection -> m ()
 
+-- | Respond with the WebSocket server when applicable, as a middleware
 websocketsOrT :: (MonadIO m) => (forall a. m a -> IO a) -> ConnectionOptions -> ServerAppT m -> MiddlewareT m
 websocketsOrT run cOpts server app req respond =
   let server' pend = run $ server pend
