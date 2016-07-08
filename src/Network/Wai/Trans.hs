@@ -31,6 +31,8 @@ module Network.Wai.Trans
   , runMiddlewareT
   , hoistApplicationT
   , hoistMiddlewareT
+  , inApplicationT
+  , inMiddlewareT
   , -- ** Exception catching
     catchApplicationT
   , catchMiddlewareT
@@ -38,6 +40,11 @@ module Network.Wai.Trans
     readingRequest
   , -- * Websockets
     ServerAppT
+  , liftServerApp
+  , runServerAppT
+  , ClientAppT
+  , liftClientApp
+  , runClientAppT
   , websocketsOrT
   ) where
 
@@ -69,6 +76,12 @@ runApplicationT run app req respond = run (app req (liftIO . respond))
 
 runMiddlewareT :: MonadIO m => (forall a. m a -> IO a) -> MiddlewareT m -> Middleware
 runMiddlewareT run mid app = runApplicationT run (mid (liftApplication run app))
+
+inApplicationT :: Monad m => m a -> ApplicationT m -> ApplicationT m
+inApplicationT x app req resp = x >> app req resp
+
+inMiddlewareT :: Monad m => m a -> MiddlewareT m -> MiddlewareT m
+inMiddlewareT x mid = mid . inApplicationT x
 
 -- ** Monad Morphisms
 
@@ -115,6 +128,21 @@ readingRequest f app req resp = do
 -- * Websockets
 
 type ServerAppT m = PendingConnection -> m ()
+
+liftServerApp :: (MonadIO m) => ServerApp -> ServerAppT m
+liftServerApp s = liftIO . s
+
+runServerAppT :: (forall a. m a -> IO a) -> ServerAppT m -> ServerApp
+runServerAppT run s = run . s
+
+type ClientAppT m a = Connection -> m a
+
+liftClientApp :: (MonadIO m) => ClientApp a -> ClientAppT m a
+liftClientApp c = liftIO . c
+
+runClientAppT :: (forall a. m a -> IO a) -> ClientAppT m a -> ClientApp a
+runClientAppT run c = run . c
+
 
 -- | Respond with the WebSocket server when applicable, as a middleware
 websocketsOrT :: (MonadIO m) => (forall a. m a -> IO a) -> ConnectionOptions -> ServerAppT m -> MiddlewareT m
