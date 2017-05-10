@@ -53,8 +53,10 @@ import           Network.Wai
 import           Network.Wai.Handler.WebSockets
 import           Network.WebSockets hiding (Request, Response)
 
+import           Data.Singleton.Class (Extractable (..))
 import           Control.Monad.IO.Class
 import           Control.Monad.Catch
+import           Control.Monad.Trans.Control.Aligned (MonadBaseControl (..))
 
 
 -- * WAI
@@ -65,17 +67,25 @@ type MiddlewareT m = ApplicationT m -> ApplicationT m
 
 -- ** Generalization
 
-liftApplication :: MonadIO m => (forall a. m a -> IO a) -> Application -> ApplicationT m
-liftApplication run app req resp = liftIO (app req (run . resp))
+liftApplication :: ( MonadBaseControl IO m stM
+                   , Extractable stM
+                   ) => Application -> ApplicationT m
+liftApplication app req resp = liftBaseWith $ \runInBase -> app req (\r -> runSingleton <$> runInBase (resp r))
 
-liftMiddleware :: MonadIO m => (forall a. m a -> IO a) -> Middleware -> MiddlewareT m
-liftMiddleware run mid app = liftApplication run (mid (runApplicationT run app))
+liftMiddleware :: ( MonadBaseControl IO m stM
+                  , Extractable stM
+                  , MonadIO m
+                  ) => (forall a. m a -> IO a) -> Middleware -> MiddlewareT m
+liftMiddleware run mid app = liftApplication (mid (runApplicationT run app))
 
 runApplicationT :: MonadIO m => (forall a. m a -> IO a) -> ApplicationT m -> Application
 runApplicationT run app req respond = run (app req (liftIO . respond))
 
-runMiddlewareT :: MonadIO m => (forall a. m a -> IO a) -> MiddlewareT m -> Middleware
-runMiddlewareT run mid app = runApplicationT run (mid (liftApplication run app))
+runMiddlewareT :: ( MonadBaseControl IO m stM
+                  , Extractable stM
+                  , MonadIO m
+                  ) => (forall a. m a -> IO a) -> MiddlewareT m -> Middleware
+runMiddlewareT run mid app = runApplicationT run (mid (liftApplication app))
 
 inApplicationT :: Monad m => m a -> ApplicationT m -> ApplicationT m
 inApplicationT x app req resp = x >> app req resp
