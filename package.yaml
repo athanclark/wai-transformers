@@ -1,0 +1,34 @@
+name:                wai-transformers
+version:             0.1.0
+github:              "athanclark/wai-transformers"
+license:             BSD3
+author:              "Athan Clark"
+maintainer:          "athan.clark@localcooking.com"
+copyright:           "2018 Athan Clark"
+
+ghc-options: -Wall
+
+extra-source-files:
+- README.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on Github at <https://git.localcooking.com/tooling/wai-transformers#readme>
+
+dependencies:
+- base >= 4.8 && < 5
+- exceptions
+- extractable-singleton >= 0.0.1
+- monad-control-aligned >= 0.0.1
+- wai >= 3.2.1
+- wai-websockets
+- transformers
+- websockets >= 0.12.4
+
+library:
+  source-dirs: src
