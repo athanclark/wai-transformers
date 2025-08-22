@@ -18,9 +18,7 @@ module Network.WebSockets.Trans where
 import Network.WebSockets (ConnectionOptions, ClientApp, ServerApp, Connection, PendingConnection)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.Wai.Trans (MiddlewareT, runApplicationT, liftApplication)
-import Data.Singleton.Class (Extractable (runSingleton))
-import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Trans.Control.Aligned (MonadBaseControl (liftBaseWith))
+import Control.Monad.IO.Unlift (MonadUnliftIO (withRunInIO), askRunInIO, MonadIO (liftIO))
 
 
 -- * Websockets
@@ -32,12 +30,12 @@ liftServerApp :: MonadIO m
               -> ServerAppT m
 liftServerApp s = liftIO . s
 
-runServerAppT :: MonadBaseControl IO m stM
-              => Extractable stM
+runServerAppT :: MonadUnliftIO m
               => ServerAppT m -- ^ To run
               -> m ServerApp
-runServerAppT s = liftBaseWith $ \runInBase ->
-  pure $ \pending -> runSingleton <$> runInBase (s pending)
+runServerAppT s = do
+  toIO <- askRunInIO
+  pure $ \pending -> toIO $ s pending
 
 type ClientAppT m a = Connection -> m a
 
@@ -46,19 +44,17 @@ liftClientApp :: MonadIO m
               -> ClientAppT m a
 liftClientApp c = liftIO . c
 
-runClientAppT :: MonadBaseControl IO m stM
-              => Extractable stM
+runClientAppT :: MonadUnliftIO m
               => ClientAppT m a -- ^ To run
               -> m (ClientApp a)
-runClientAppT c = liftBaseWith $ \runInBase ->
-  pure $ \conn -> runSingleton <$> runInBase (c conn)
-
+runClientAppT c = do
+  toIO <- askRunInIO
+  pure $ \conn -> toIO $ c conn
 
 -- * WAI Compatability
 
 -- | Respond with the WebSocket server when applicable, as a middleware
-websocketsOrT :: MonadBaseControl IO m stM
-              => Extractable stM
+websocketsOrT :: MonadUnliftIO m
               => ConnectionOptions
               -> ServerAppT m -- ^ Server
               -> MiddlewareT m
