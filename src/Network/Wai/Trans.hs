@@ -21,9 +21,8 @@ module Network.Wai.Trans where
 
 import Network.Wai (Application, Middleware, Request, Response, ResponseReceived)
 
-import Data.Singleton.Class (Extractable (runSingleton))
 import Control.Monad.Catch (Exception, MonadCatch (catch))
-import Control.Monad.Trans.Control.Aligned (MonadBaseControl (liftBaseWith))
+import Control.Monad.IO.Unlift (MonadUnliftIO (withRunInIO), askRunInIO, liftIO)
 
 
 -- | Isomorphic to @Kleisli (ContT ResponseReceived m) Request Response@
@@ -32,34 +31,32 @@ type MiddlewareT m = ApplicationT m -> ApplicationT m
 
 -- * Lift and Run
 
-liftApplication :: MonadBaseControl IO m stM
-                => Extractable stM
+liftApplication :: MonadUnliftIO m
                 => Application -- ^ To lift
                 -> ApplicationT m
-liftApplication app req resp = liftBaseWith (\runInBase -> app req (\r -> runSingleton <$> runInBase (resp r)))
+liftApplication app req respond = withRunInIO (\toIO -> app req (toIO . respond))
 
-liftMiddleware :: MonadBaseControl IO m stM
-               => Extractable stM
+liftMiddleware :: MonadUnliftIO m
                => Middleware -- ^ To lift
                -> MiddlewareT m
 liftMiddleware mid app req respond = do
   app' <- runApplicationT app
-  liftBaseWith (\runInBase -> mid app' req (fmap runSingleton . runInBase . respond))
+  withRunInIO (\toIO -> mid app' req (toIO . respond))
 
-runApplicationT :: MonadBaseControl IO m stM
-                => Extractable stM
+runApplicationT :: MonadUnliftIO m
                 => ApplicationT m -- ^ To run
                 -> m Application
-runApplicationT app = liftBaseWith $ \runInBase ->
-  pure $ \req respond -> fmap runSingleton $ runInBase $ app req (\x -> liftBaseWith (\_ -> respond x))
+runApplicationT app = do 
+  toIO <- askRunInIO
+  pure $ \req respond -> toIO . app req $ liftIO . respond
 
-runMiddlewareT :: MonadBaseControl IO m stM
-               => Extractable stM
+runMiddlewareT :: MonadUnliftIO m
                => MiddlewareT m -- ^ To run
                -> m Middleware
-runMiddlewareT mid = liftBaseWith $ \runInBase ->
+runMiddlewareT mid = do
+  toIO <- askRunInIO
   pure $ \app req respond -> do
-    app' <- fmap runSingleton $ runInBase $ runApplicationT (mid (liftApplication app))
+    app' <- toIO $ runApplicationT (mid (liftApplication app))
     app' req respond
 
 -- * Monad Morphisms
